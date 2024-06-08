@@ -1,0 +1,8 @@
+.vscode/
+.idea/
+sui.log.*
+build/
+deployments-testnet.json
+**/*.log
+.metals/
+.DS_Store

@@ -1,25 +1,97 @@
-module centarus_core::market {
-    use std::option::{Self, Option};
-    use std::type_name::{Self, TypeName};
-
+module centaurus_core::market {
     use sui::event;
-    use sui::transfer;
     use sui::bag::{Self, Bag};
-    use sui::table::{Self, Table};
-    use sui::clock::{Self, Clock};
-    use sui::vec_set::{Self, VecSet};
-    use sui::vec_map::{Self, VecMap};
-    use sui::object::{Self, ID, UID};
-    use sui::tx_context::{Self, TxContext};
     use sui::balance::{Self, Balance, Supply};
-    use sui::coin::{Self, Coin, CoinMetadata};
-    use sui::sui::{SUI};
+    use sui::coin::{Self, Coin};
+
+    use centaurus_core::admin::AdminCap;
+    use centaurus_core::pool::{Self, Vault};
+
+    /// `Market` represents the market for wrapped bridged token
+    /// where L is the wrapped bridged token type type and C is the bridged token type
+    public struct Market<phantom L, phantom C> has key, store {
+        id: UID,
+
+        // bit mask of versioned functions
+        fun_mask: u256,
+
+        vaults_locked: bool,
+
+        vaults: Bag,
+        lp_supply: Supply<L>,
+    }
+
+    /// === Events ===
+    public struct MarketCreated<phantom C> has copy, drop {
+        vaults_parent: ID,
+    }
+
+    public struct MarketFunMaskUpdated has copy, drop {
+        fun_mask: u256,
+    }
+
+    public struct VaultCreated<phantom C> has copy, drop {}
+
+    public struct Wrapped<phantom C> has copy, drop {
+        minter: address,
+        deposit_amount: u64,
+        mint_amount: u64,
+    }
+
+    public struct Unwrapped<phantom C> has copy, drop {
+        burner: address,
+        withdraw_amount: u64,
+        burn_amount: u64,
+    }
+
+    /// === Tag structs ===
+    public struct VaultName<phantom C> has copy, drop, store {}
+
+    // === Errors ===
+    // common errors
+    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 1;
+
+    // === Internal functions ===
+
+    #[lint_allow(self_transfer)]
+    fun pay_from_balance<T>(
+        balance: Balance<T>,
+        receiver: address,
+        ctx: &mut TxContext,
+    ) {
+        if (balance::value(&balance) > 0) {
+            transfer::public_transfer(coin::from_balance(balance, ctx), receiver);
+        } else {
+            balance::destroy_zero(balance);
+        }
+    }
 
     /// === public write functions ===
 
+    /// create market for centaurus wrapped bridged token and bridged token
+    public(package) fun create_market<L, C>(
+        lp_supply: Supply<L>,
+        ctx: &mut TxContext,
+    ) {
+        let market = Market<L, C> {
+            id: object::new(ctx),
+            fun_mask: 0x0,
+            vaults_locked: false,
+            vaults: bag::new(ctx),
+            lp_supply,
+        };
+        // emit market created
+        event::emit(MarketCreated<L> {
+            vaults_parent: object::id(&market.vaults),
+        });
+
+        transfer::share_object(market);
+    }
+
     // version = 0x1 << 12
-    public fun mint_wrapped_token<L, C>(
-        market: &mut Market<L>,
+    /// wrap bridged token
+    public fun wrap_token<L, C>(
+        market: &mut Market<L, C>,
         deposit: Coin<C>,
         min_amount_out: u64,
         ctx: &mut TxContext,
@@ -29,18 +101,13 @@ module centarus_core::market {
         let minter = tx_context::sender(ctx);
         let deposit_amount = coin::value(&deposit);
         let lp_supply_amount = balance::supply_value(&market.lp_supply);
+        let vault: &mut Vault<C> = bag::borrow_mut(&mut market.vaults, VaultName<C> {});
 
-        let (mint_amount, fee_value) = pool::deposit(
+        let mint_amount = pool::wrap(
             vault,
-            model,
-            &price,
             coin::into_balance(deposit),
             min_amount_out,
             lp_supply_amount,
-            market_value,
-            vault_value,
-            total_vaults_value,
-            total_weight,
         );
 
         // mint to sender
@@ -48,27 +115,21 @@ module centarus_core::market {
         pay_from_balance(minted, minter, ctx);
 
         // emit deposited
-        event::emit(Deposited<C> {
+        event::emit(Wrapped<C> {
             minter,
-            price: agg_price::price_of(&price),
             deposit_amount,
             mint_amount,
-            fee_value,
         });
     }
 
     // version = 0x1 << 13
-    public fun redeem_wrapped_token<L, C>(
-        market: &mut Market<L>,
+    public fun unwrap_token<L, C>(
+        market: &mut Market<L, C>,
         burn: Coin<L>,
         min_amount_out: u64,
         ctx: &mut TxContext,
     ) {
         assert!(market.fun_mask & 0x2000 == 0, ERR_FUNCTION_VERSION_EXPIRED);
-        assert!(
-            object::id(model) == market.rebase_fee_model,
-            ERR_MISMATCHED_RESERVING_FEE_MODEL,
-        );
 
         let burner = tx_context::sender(ctx);
         let lp_supply_amount = balance::supply_value(&market.lp_supply);
@@ -82,29 +143,48 @@ module centarus_core::market {
         );
 
         // withdraw to burner
-        let (withdraw, fee_value) = pool::withdraw(
+        let withdraw = pool::unwrap(
             vault,
-            model,
-            &price,
             burn_amount,
             min_amount_out,
             lp_supply_amount,
-            market_value,
-            vault_value,
-            total_vaults_value,
-            total_weight,
         );
 
         let withdraw_amount = balance::value(&withdraw);
         pay_from_balance(withdraw, burner, ctx);
 
         // emit withdrawn
-        event::emit(Withdrawn<C> {
+        event::emit(Unwrapped<C> {
             burner,
-            price: agg_price::price_of(&price),
             withdraw_amount,
             burn_amount,
-            fee_value,
+        });
+    }
+
+    // admin functions
+    // === v1_1 functions ===
+
+    public entry fun add_new_vault<L, C>(
+        _a: &AdminCap,
+        market: &mut Market<L, C>,
+    ) {
+        let vault = pool::new_vault<C>();
+        bag::add(&mut market.vaults, VaultName<C> {}, vault);
+        
+        // emit vault created
+        event::emit(VaultCreated<C> {});
+    }
+
+    public entry fun update_market_fun_mask<L, C>(
+        _a: &AdminCap,
+        market: &mut Market<L, C>,
+        fun_mask: u256,
+        _ctx: &mut TxContext,
+    ) {
+        market.fun_mask = fun_mask;
+        // emit market fun mask updated
+        event::emit(MarketFunMaskUpdated {
+            fun_mask: fun_mask,
         });
     }
 }
