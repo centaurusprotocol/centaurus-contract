@@ -67,27 +67,6 @@ module centaurus_core::market {
     }
 
     /// === public write functions ===
-
-    /// create market for centaurus wrapped bridged token and bridged token
-    public(package) fun create_market<L, C>(
-        lp_supply: Supply<L>,
-        ctx: &mut TxContext,
-    ) {
-        let market = Market<L, C> {
-            id: object::new(ctx),
-            fun_mask: 0x0,
-            vaults_locked: false,
-            vaults: bag::new(ctx),
-            lp_supply,
-        };
-        // emit market created
-        event::emit(MarketCreated<L> {
-            vaults_parent: object::id(&market.vaults),
-        });
-
-        transfer::share_object(market);
-    }
-
     // version = 0x1 << 12
     /// wrap bridged token
     public fun wrap_token<L, C>(
@@ -162,7 +141,26 @@ module centaurus_core::market {
     }
 
     // admin functions
-    // === v1_1 functions ===
+    /// create market for centaurus wrapped bridged token and bridged token
+    public fun create_market<L, C>(
+        _a: &AdminCap,
+        lp_supply: Supply<L>,
+        ctx: &mut TxContext,
+    ) {
+        let market = Market<L, C> {
+            id: object::new(ctx),
+            fun_mask: 0x0,
+            vaults_locked: false,
+            vaults: bag::new(ctx),
+            lp_supply,
+        };
+        // emit market created
+        event::emit(MarketCreated<L> {
+            vaults_parent: object::id(&market.vaults),
+        });
+
+        transfer::share_object(market);
+    }
 
     public entry fun add_new_vault<L, C>(
         _a: &AdminCap,
