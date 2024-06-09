@@ -1,8 +1,0 @@
-{
-  "centaurus_core": {
-    "package": "0xd71b62d7c58929fd6cd3e27e2a517339050bed357d429b334c7e51cb12ac7913",
-    "upgraded_package": "0xd71b62d7c58929fd6cd3e27e2a517339050bed357d429b334c7e51cb12ac7913",
-    "upgrade_cap": "0x56ded8d5104c9fe848fe04681983b9f3c40477a5b6f7e8835d7bc55d6c4ed499",
-    "admin_cap": "0x29a236e97060434bdea30b0563b9129532585b5877bfdf9ad437bb3979c8f743"
-  }
-}

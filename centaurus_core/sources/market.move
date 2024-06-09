@@ -2,7 +2,7 @@ module centaurus_core::market {
     use sui::event;
     use sui::bag::{Self, Bag};
     use sui::balance::{Self, Balance, Supply};
-    use sui::coin::{Self, Coin};
+    use sui::coin::{Self, Coin, TreasuryCap};
 
     use centaurus_core::admin::AdminCap;
     use centaurus_core::pool::{Self, Vault};
@@ -144,9 +144,10 @@ module centaurus_core::market {
     /// create market for centaurus wrapped bridged token and bridged token
     public fun create_market<L, C>(
         _a: &AdminCap,
-        lp_supply: Supply<L>,
+        treasury: TreasuryCap<L>,
         ctx: &mut TxContext,
     ) {
+        let lp_supply = coin::treasury_into_supply(treasury);
         let market = Market<L, C> {
             id: object::new(ctx),
             fun_mask: 0x0,

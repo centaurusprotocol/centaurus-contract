@@ -1,0 +1,28 @@
+{
+  "centaurus_core": {
+    "package": "0x5bb387bd036a7146cffdb9a95c62ff6a1f1e86e8e6001434cbd125a9d10f16b6",
+    "upgraded_package": "0x5bb387bd036a7146cffdb9a95c62ff6a1f1e86e8e6001434cbd125a9d10f16b6",
+    "upgrade_cap": "0xd31facfcb95ecf537419345ee4daf6d84ec9ffc0de0d585420ac51b0791d4b55",
+    "admin_cap": "0x4c5b1f547b83bf28901e809ea36ce22342f613237b56462c3c69aa60307c1df2",
+    "markets": {
+      "ct_usdt": "0x63e6d8eb8aa82291ca4888966890ca9dbf51e4d990d143dd9ed2159d977c09be"
+    },
+    "vaults": {
+      "usdt": "0x235f70ddf441d38e0a380cc718bf8149af2197f218a57a271d881b22de96c945"
+    }
+  },
+  "coins": {
+    "usdt": {
+      "decimals": 6,
+      "module": "0x2b37ec0afcb0336d404b7214c6f06c5c62ad32099393abe8401cf9da518189ed::usdt::USDT",
+      "metadata": "0x7d0a03417fa8d0270a16d298e799f25d34adca6cd66103b5435b5e96c81c918c",
+      "treasury": "0x9c84305e672a9bdb6675786cbe58fc4f93f02f16022ac031aeeeef0de7c9a2d2"
+    },
+    "ct_usdt": {
+      "decimals": 6,
+      "module": "0xfefc9a2b04d205e2dcfcfa27aec863beacf69ff17744df8a858391284bb57b88::ct_usdt::CT_USDT",
+      "metadata": "0xb04f45cf8c6c1330a6cdd301ae32b544efa8b0577d23423d0a07d089e5b89dda",
+      "treasury": "0x0eb18f5d0ced8fe16bd15ec9e17d22cace22a3dee8693b05f8806099926cdb44"
+    }
+  }
+}
